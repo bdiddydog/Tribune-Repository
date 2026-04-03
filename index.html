@@ -174,6 +174,11 @@ footer strong{color:var(--gold)}
         <span class="src"><span class="src-dot" style="background:#c4a55a"></span>The Guardian</span>
         <span class="src"><span class="src-dot" style="background:#1a6b3a"></span>Al Jazeera</span>
         <span class="src"><span class="src-dot" style="background:#1a6b3a"></span>ESPN</span>
+        <span class="src"><span class="src-dot" style="background:#1a6b3a"></span>Reuters Tech</span>
+        <span class="src"><span class="src-dot" style="background:#1a6b3a"></span>Reuters Business</span>
+        <span class="src"><span class="src-dot" style="background:#1a6b3a"></span>NPR Technology</span>
+        <span class="src"><span class="src-dot" style="background:#1a6b3a"></span>NPR Sports</span>
+        <span class="src"><span class="src-dot" style="background:#1a6b3a"></span>NPR Environment</span>
         <span class="src"><span class="src-dot" style="background:#1a6b3a"></span>Open-Meteo</span>
         <span class="src"><span class="src-dot" style="background:#1a6b3a"></span>NWS / weather.gov</span>
         <span class="src"><span class="src-dot" style="background:#1a6b3a"></span>Yahoo Finance</span>
@@ -350,32 +355,46 @@ function renderMarkets(){
 }
 
 /* ── NEWS RSS ── */
-/* rss2json.com converts any public RSS to JSON with CORS support — free, no key for public feeds */
 const RSS='https://api.rss2json.com/v1/api.json?count=15&rss_url=';
 const FEEDS=[
+  // World
   {url:'https://feeds.reuters.com/reuters/topNews',            label:'Reuters',           tag:'world'},
   {url:'https://feeds.bbci.co.uk/news/rss.xml',               label:'BBC News',           tag:'world'},
+  {url:'https://www.aljazeera.com/xml/rss/all.xml',           label:'Al Jazeera',         tag:'world'},
+  {url:'https://www.theguardian.com/world/rss',               label:'The Guardian',       tag:'world'},
+  {url:'https://feeds.washingtonpost.com/rss/world',          label:'Washington Post',    tag:'world'},
+  // U.S.
   {url:'https://feeds.npr.org/1001/rss.xml',                  label:'NPR News',           tag:'us'},
   {url:'https://www.pbs.org/newshour/feeds/rss/headlines',    label:'PBS NewsHour',       tag:'us'},
   {url:'https://feeds.washingtonpost.com/rss/homepage',       label:'Washington Post',    tag:'us'},
-  {url:'https://feeds.washingtonpost.com/rss/world',          label:'Washington Post',    tag:'world'},
   {url:'https://feeds.washingtonpost.com/rss/politics',       label:'Washington Post',    tag:'us'},
-  {url:'https://feeds.washingtonpost.com/rss/business',       label:'Washington Post',    tag:'business'},
-  {url:'https://www.theguardian.com/world/rss',               label:'The Guardian',       tag:'world'},
   {url:'https://www.theguardian.com/us-news/rss',             label:'The Guardian',       tag:'us'},
+  // Business
+  {url:'https://feeds.washingtonpost.com/rss/business',       label:'Washington Post',    tag:'business'},
   {url:'https://www.theguardian.com/business/rss',            label:'The Guardian',       tag:'business'},
+  {url:'https://feeds.reuters.com/reuters/businessNews',      label:'Reuters Business',   tag:'business'},
+  // Technology
   {url:'https://www.theguardian.com/technology/rss',          label:'The Guardian',       tag:'technology'},
-  {url:'https://www.theguardian.com/sport/rss',               label:'The Guardian',       tag:'sports'},
-  {url:'https://www.aljazeera.com/xml/rss/all.xml',           label:'Al Jazeera',         tag:'world'},
+  {url:'https://feeds.reuters.com/reuters/technologyNews',    label:'Reuters Tech',       tag:'technology'},
+  {url:'https://feeds.npr.org/1019/rss.xml',                  label:'NPR Technology',     tag:'technology'},
+  // Sports
   {url:'https://www.espn.com/espn/rss/news',                  label:'ESPN',               tag:'sports'},
+  {url:'https://www.theguardian.com/sport/rss',               label:'The Guardian Sport', tag:'sports'},
+  {url:'https://feeds.npr.org/1055/rss.xml',                  label:'NPR Sports',         tag:'sports'},
+  // Weather news
+  {url:'https://feeds.reuters.com/reuters/scienceNews',       label:'Reuters Science',    tag:'weather'},
+  {url:'https://www.theguardian.com/environment/climate-crisis/rss', label:'The Guardian Climate', tag:'weather'},
+  {url:'https://feeds.npr.org/1026/rss.xml',                  label:'NPR Environment',    tag:'weather'},
 ];
+
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
 async function fetchFeed(f){
   const tout=ms=>new Promise((_,rej)=>setTimeout(()=>rej('timeout'),ms));
 
-  // Method 1: rss2json (handles CORS + parsing)
+  // Method 1: rss2json
   try{
-    const r=await Promise.race([fetch(RSS+encodeURIComponent(f.url)),tout(7000)]);
+    const r=await Promise.race([fetch(RSS+encodeURIComponent(f.url)),tout(8000)]);
     const d=await r.json();
     if(d.status==='ok'&&d.items?.length){
       return d.items.map(i=>({
@@ -386,11 +405,11 @@ async function fetchFeed(f){
     }
   }catch{}
 
-  // Method 2: fetch raw XML via allorigins proxy, parse with DOMParser
+  // Method 2: allorigins raw XML fallback
   try{
     const r=await Promise.race([
       fetch('https://api.allorigins.win/raw?url='+encodeURIComponent(f.url)),
-      tout(8000)
+      tout(10000)
     ]);
     const xml=await r.text();
     const doc=new DOMParser().parseFromString(xml,'text/xml');
@@ -406,21 +425,24 @@ async function fetchFeed(f){
       };
     }).filter(i=>i.title);
   }catch{}
-
   return[];
 }
 
 async function fetchAllNews(){
-  // Fetch progressively — render as each feed arrives so page populates immediately
-  const promises=FEEDS.map(async f=>{
-    const items=await fetchFeed(f);
-    if(!items.length)return;
-    if(f.tag==='sports') sportsNews=[...sportsNews,...items];
-    else allNews=[...allNews,...items];
-    renderContent();
-    buildTicker();
-  });
-  await Promise.allSettled(promises);
+  // Stagger requests in small batches to avoid rate limiting
+  const BATCH=4;
+  for(let i=0;i<FEEDS.length;i+=BATCH){
+    const batch=FEEDS.slice(i,i+BATCH);
+    await Promise.allSettled(batch.map(async f=>{
+      const items=await fetchFeed(f);
+      if(!items.length)return;
+      if(f.tag==='sports') sportsNews=[...sportsNews,...items];
+      else allNews=[...allNews,...items];
+      renderContent();
+      buildTicker();
+    }));
+    if(i+BATCH<FEEDS.length) await sleep(300);
+  }
   renderContent();
   buildTicker();
 }
@@ -431,20 +453,33 @@ function storeArticle(n){const id='a'+(articleIdx++);articleStore[id]=n;return i
 
 function renderContent(){
   const tab=activeTab;
-  let items=tab==='all'?allNews:tab==='sports'?sportsNews:allNews.filter(n=>n.tag===tab||n.title.toLowerCase().includes(tab));
+  let items;
+  if(tab==='all') items=allNews;
+  else if(tab==='sports') items=sportsNews;
+  else items=[...allNews,...sportsNews].filter(n=>n.tag===tab);
+
+  const loading=`<div class="empty-state" style="grid-column:span 2">
+    <div style="font-size:28px;margin-bottom:12px">⏳</div>
+    Fetching ${tab} headlines… give it a moment.
+  </div>`;
+
   if(items.length>=3){
     const[feat,...rest]=items;
     $('topGrid').innerHTML=card(feat,true)+rest.slice(0,2).map(n=>card(n,false)).join('');
+  } else if(items.length>0){
+    $('topGrid').innerHTML=items.map((n,i)=>card(n,i===0)).join('');
   } else {
-    $('topGrid').innerHTML='<div class="empty-state" style="grid-column:span 2">Loading headlines — please wait a moment…</div>';
+    $('topGrid').innerHTML=loading;
   }
+
   const more=items.slice(3,13);
   $('moreList').innerHTML=more.length
     ?more.map((n,i)=>{const id=storeArticle(n);return`<div class="list-item" onclick="openA('${id}')">
         <div class="list-num">${String(i+1).padStart(2,'0')}</div>
         <div><div class="list-hl">${esc(n.title)}</div><div class="list-meta">${esc(n.source)} · ${ago(n.pubDate)}</div></div>
       </div>`}).join('')
-    :'<div class="empty-state">No additional stories</div>';
+    :'<div class="empty-state">No additional stories yet — still loading…</div>';
+
   const sp=(tab==='all'||tab==='sports')?sportsNews.slice(0,6):[];
   $('sportsGrid').innerHTML=sp.map(n=>{const id=storeArticle(n);return`<div class="sport-card" onclick="openA('${id}')">
     <div class="sport-cat">${esc(n.source)}</div><div class="sport-hl">${esc(n.title)}</div><div class="sport-src">${ago(n.pubDate)}</div>
