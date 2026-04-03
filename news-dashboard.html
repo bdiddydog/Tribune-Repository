@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Tribune — Live News Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Source+Sans+3:wght@300;400;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f1ec;--surface:#ffffff;--card:#ffffff;
+  --border:rgba(0,0,0,0.10);--border2:rgba(0,0,0,0.16);
+  --gold:#8a6b2a;--text:#1a1612;--text-sec:#5a5248;
+  --red:#b02020;--green:#1a6b3a;--blue:#1a4a7a;
+  --ticker-bg:#f5f0e8;--ticker-text:#2a1f0a;--break-bg:#b02020;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Source Sans 3',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:21px}
+.ticker-outer{position:sticky;top:0;z-index:200;height:44px;display:flex;align-items:center;overflow:hidden;background:var(--ticker-bg);border-bottom:2px solid #c8a84a;box-shadow:0 2px 6px rgba(0,0,0,.10)}
+.ticker-label{background:var(--break-bg);color:#fff;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:0 16px;height:100%;display:flex;align-items:center;white-space:nowrap;flex-shrink:0;gap:7px}
+.ticker-label::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:#fff;animation:blink 1s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.ticker-scroll{flex:1;overflow:hidden}
+.ticker-track{display:flex;animation:scroll-left 100s linear infinite;width:max-content}
+.ticker-track:hover{animation-play-state:paused}
+@keyframes scroll-left{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.t-item{display:inline-flex;align-items:center;gap:6px;padding:0 22px;font-family:'IBM Plex Mono',monospace;font-size:15px;color:var(--ticker-text);font-weight:500;border-right:1px solid rgba(0,0,0,.15);white-space:nowrap}
+.t-item .badge{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:1px 6px;border-radius:2px;background:rgba(0,0,0,.12);color:#2a1f0a}
+.t-item.up .chg{color:#1a5c30}.t-item.down .chg{color:#8b1a1a}
+.t-item.news-item .badge{background:var(--break-bg);color:#fff}
+.t-item.wx-item .badge{background:#1a4a7a;color:#c8dcf0}
+header{background:var(--surface);border-bottom:3px solid var(--gold);box-shadow:0 2px 6px rgba(0,0,0,.08)}
+.hdr{max-width:1400px;margin:0 auto;padding:0 28px}
+.hdr-top{display:flex;align-items:center;justify-content:space-between;padding:20px 0 16px;border-bottom:1px solid var(--border)}
+.masthead{font-family:'Playfair Display',Georgia,serif;font-size:58px;font-weight:900;letter-spacing:-1px;color:#1a1612}
+.masthead em{color:var(--gold);font-style:normal}
+.hdr-date{font-size:16px;color:var(--text-sec);margin-bottom:4px;text-align:right}
+.hdr-tag{font-family:'Playfair Display',serif;font-style:italic;font-size:16px;color:var(--gold);text-align:right}
+nav{display:flex;overflow-x:auto;background:var(--surface)}
+.tab{background:none;border:none;border-bottom:3px solid transparent;padding:14px 20px;font-size:15px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-sec);cursor:pointer;transition:all .2s;white-space:nowrap}
+.tab:hover{color:var(--text)}.tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+main{max-width:1400px;margin:0 auto;padding:28px;display:grid;grid-template-columns:310px 1fr;gap:28px;align-items:start}
+.sidebar{display:flex;flex-direction:column;gap:18px}
+.widget{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.wtitle{font-size:12px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--gold);margin-bottom:16px;display:flex;align-items:center;gap:10px}
+.wtitle::after{content:'';flex:1;height:1px;background:var(--border2)}
+.wtitle small{font-size:11px;color:var(--text-sec);letter-spacing:.5px;text-transform:none;font-weight:400}
+.wx-loc{font-size:14px;color:var(--text-sec);margin-bottom:8px}
+.wx-main{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.wx-temp{font-size:68px;font-weight:300;line-height:1;color:var(--text)}
+.wx-temp sup{font-size:26px;vertical-align:super;color:var(--text-sec)}
+.wx-feel{font-size:15px;color:var(--text-sec);margin-top:4px}
+.wx-desc{font-family:'Playfair Display',serif;font-size:22px;font-style:italic;margin-bottom:16px;color:var(--text)}
+.wx-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;border-top:1px solid var(--border);padding-top:14px}
+.wx-stat label{font-size:12px;color:var(--text-sec);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:2px}
+.wx-stat strong{font-size:19px;font-weight:500;color:var(--text)}
+.wx-forecast{margin-top:16px;border-top:1px solid var(--border);padding-top:14px}
+.wx-fx-title{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:10px}
+.wx-fx-row{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)}
+.wx-fx-row:last-child{border-bottom:none}
+.wx-fx-name{font-size:15px;font-weight:700;color:var(--text);width:80px;flex-shrink:0}
+.wx-fx-detail{font-size:14px;color:var(--text-sec);line-height:1.5}
+.mkt-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)}
+.mkt-row:last-child{border-bottom:none}
+.mkt-name{font-size:16px;font-weight:700;color:var(--text)}.mkt-sub{font-size:13px;color:var(--text-sec)}
+.mkt-price{font-family:'IBM Plex Mono',monospace;font-size:16px;text-align:right;font-weight:500}
+.mkt-chg{font-family:'IBM Plex Mono',monospace;font-size:14px;text-align:right}
+.up{color:var(--green)}.down{color:var(--red)}
+.live-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 1.5s infinite;margin-left:4px;vertical-align:middle}
+.src-list{display:flex;flex-wrap:wrap;gap:7px}
+.src{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;background:var(--bg);border:1px solid var(--border);border-radius:4px;font-size:13px;font-weight:600;color:var(--text-sec)}
+.src-dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+.legend{font-size:13px;color:var(--text-sec);margin-top:12px;line-height:1.9}
+.content{min-width:0}
+.section{margin-bottom:32px}
+.sec-hdr{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.sec-label{font-size:12px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--gold)}
+.sec-line{flex:1;height:1px;background:var(--border2)}
+.news-grid{display:grid;grid-template-columns:2fr 1fr;grid-template-rows:auto auto;gap:1px;background:var(--border2);border:1px solid var(--border2);border-radius:6px;overflow:hidden;margin-bottom:24px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.news-card{background:var(--card);padding:22px;cursor:pointer;transition:background .15s}
+.news-card:hover{background:#f0ebe0}
+.news-card.featured{grid-row:span 2}
+.news-src{font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:8px}
+.news-tag{display:inline-block;padding:4px 10px;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;border-radius:3px;margin-bottom:10px}
+.tag-world{background:#ddeeff;color:#1a3d6a}.tag-us{background:#ddf0e0;color:#1a4a28}
+.tag-business{background:#f8edd0;color:#6a4a0a}.tag-sports{background:#ddf5e8;color:#1a4d30}
+.tag-weather{background:#dde8f8;color:#1a3060}.tag-technology{background:#ecddf8;color:#3a1a5a}
+.news-hl{font-family:'Playfair Display',Georgia,serif;font-size:28px;font-weight:700;line-height:1.25;margin-bottom:12px;color:var(--text)}
+.news-card:not(.featured) .news-hl{font-size:21px;line-height:1.35}
+.news-snip{font-size:19px;color:var(--text-sec);line-height:1.65;margin-bottom:14px}
+.news-time{font-size:15px;color:var(--text-sec)}
+.news-list{display:flex;flex-direction:column;gap:1px;background:var(--border2);border:1px solid var(--border2);border-radius:6px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.list-item{background:var(--card);padding:20px 24px;cursor:pointer;transition:background .15s;display:flex;gap:16px;align-items:flex-start}
+.list-item:hover{background:#f0ebe0}
+.list-num{font-family:'Playfair Display',serif;font-size:32px;font-weight:900;color:var(--border2);line-height:1;width:38px;flex-shrink:0;margin-top:2px}
+.list-hl{font-family:'Playfair Display',serif;font-size:21px;font-weight:700;line-height:1.35;margin-bottom:5px;color:var(--text)}
+.list-meta{font-size:15px;color:var(--text-sec)}
+.sports-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.sport-card{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:20px;cursor:pointer;transition:background .15s;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.sport-card:hover{background:#f0ebe0}
+.sport-cat{font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:9px}
+.sport-hl{font-family:'Playfair Display',serif;font-size:19px;font-weight:700;line-height:1.35;color:var(--text)}
+.sport-src{font-size:14px;color:var(--text-sec);margin-top:8px}
+.shimmer{background:linear-gradient(90deg,#ede8e0 25%,#f8f4ee 50%,#ede8e0 75%);background-size:200%;animation:shimmer 1.4s infinite;border-radius:3px;height:22px;margin-bottom:10px}
+@keyframes shimmer{0%{background-position:200%}100%{background-position:-200%}}
+.empty-state{padding:32px;text-align:center;color:var(--text-sec);font-size:18px}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:500;align-items:center;justify-content:center;padding:20px}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border:1px solid var(--border2);border-radius:8px;max-width:760px;width:100%;max-height:88vh;overflow-y:auto;padding:44px;box-shadow:0 8px 32px rgba(0,0,0,.18)}
+.modal-src{font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:14px}
+.modal-hl{font-family:'Playfair Display',serif;font-size:34px;font-weight:700;line-height:1.22;margin-bottom:18px;color:var(--text)}
+.modal-body{font-size:20px;color:var(--text-sec);line-height:1.8}
+.modal-body p{margin-bottom:16px}
+.modal-close{float:right;background:none;border:1px solid var(--border2);color:var(--text-sec);padding:9px 20px;cursor:pointer;font-size:15px;border-radius:4px}
+.modal-close:hover{background:var(--bg)}
+.modal-link{display:inline-block;margin-top:18px;padding:13px 26px;background:var(--gold);color:#fff;font-weight:700;font-size:17px;text-decoration:none;border-radius:4px}
+footer{background:var(--surface);border-top:2px solid var(--gold);padding:28px;text-align:center;font-size:14px;color:var(--text-sec);margin-top:16px;line-height:1.9}
+footer strong{color:var(--gold)}
+.ftable{display:inline-grid;grid-template-columns:auto auto auto;column-gap:28px;row-gap:4px;margin-top:12px;text-align:left}
+.fn{color:var(--text);font-weight:600}.ft{color:var(--green)}.fd{color:var(--text-sec)}
+@media(max-width:960px){main{grid-template-columns:1fr;padding:16px}.news-grid{grid-template-columns:1fr}.news-card.featured{grid-row:span 1}.sports-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.masthead{font-size:30px}.sports-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="ticker-outer">
+  <div class="ticker-label">&#9679; LIVE</div>
+  <div class="ticker-scroll"><div class="ticker-track" id="tickerTrack">Loading…</div></div>
+</div>
+
+<header>
+  <div class="hdr">
+    <div class="hdr-top">
+      <div class="masthead">The <em>Tribune</em></div>
+      <div>
+        <div class="hdr-date" id="hdrDate"></div>
+        <div class="hdr-tag">Reliable · Truthful · Free Sources Only</div>
+      </div>
+    </div>
+    <nav>
+      <button class="tab active" onclick="setTab('all',this)">All News</button>
+      <button class="tab" onclick="setTab('world',this)">World</button>
+      <button class="tab" onclick="setTab('us',this)">U.S.</button>
+      <button class="tab" onclick="setTab('business',this)">Business</button>
+      <button class="tab" onclick="setTab('sports',this)">Sports</button>
+      <button class="tab" onclick="setTab('technology',this)">Technology</button>
+      <button class="tab" onclick="setTab('weather',this)">Weather</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <aside class="sidebar">
+    <div class="widget">
+      <div class="wtitle">Weather <small>· NWS + Open-Meteo · Free</small></div>
+      <div id="weatherWidget">
+        <div class="shimmer" style="height:55px;margin-bottom:12px"></div>
+        <div class="shimmer" style="width:65%"></div><div class="shimmer" style="width:50%"></div>
+      </div>
+    </div>
+    <div class="widget">
+      <div class="wtitle">Markets <small id="mktNote"></small></div>
+      <div id="marketWidget"><div class="shimmer"></div><div class="shimmer"></div><div class="shimmer"></div></div>
+    </div>
+    <div class="widget">
+      <div class="wtitle">News Sources</div>
+      <div class="src-list">
+        <span class="src"><span class="src-dot" style="background:#1a6b3a"></span>Reuters</span>
+        <span class="src"><span class="src-dot" style="background:#1a6b3a"></span>BBC News</span>
+        <span class="src"><span class="src-dot" style="background:#1a6b3a"></span>NPR News</span>
+        <span class="src"><span class="src-dot" style="background:#1a6b3a"></span>PBS NewsHour</span>
+        <span class="src"><span class="src-dot" style="background:#c4a55a"></span>Washington Post</span>
+        <span class="src"><span class="src-dot" style="background:#c4a55a"></span>The Guardian</span>
+        <span class="src"><span class="src-dot" style="background:#1a6b3a"></span>Al Jazeera</span>
+        <span class="src"><span class="src-dot" style="background:#1a6b3a"></span>ESPN</span>
+        <span class="src"><span class="src-dot" style="background:#1a6b3a"></span>Open-Meteo</span>
+        <span class="src"><span class="src-dot" style="background:#1a6b3a"></span>NWS / weather.gov</span>
+        <span class="src"><span class="src-dot" style="background:#1a6b3a"></span>Yahoo Finance</span>
+      </div>
+      <div class="legend">
+        <span style="color:#1a6b3a">●</span> Free · no key required<br>
+        <span style="color:#c4a55a">●</span> Your subscription · full articles unlock on click<br>
+        News refreshes every 5 min · Markets every 60s · Weather every 15 min.
+      </div>
+    </div>
+  </aside>
+
+  <div class="content">
+    <div class="section">
+      <div class="sec-hdr"><span class="sec-label">Top Stories</span><div class="sec-line"></div></div>
+      <div class="news-grid" id="topGrid">
+        <div class="news-card featured"><div class="shimmer" style="height:55px;margin-bottom:12px"></div><div class="shimmer" style="height:24px;margin-bottom:8px"></div><div class="shimmer"></div><div class="shimmer" style="width:80%;margin-bottom:14px"></div><div class="shimmer" style="width:30%;height:11px"></div></div>
+        <div class="news-card"><div class="shimmer" style="height:16px"></div><div class="shimmer" style="height:20px"></div><div class="shimmer" style="width:50%;height:11px"></div></div>
+        <div class="news-card"><div class="shimmer" style="height:16px"></div><div class="shimmer" style="height:20px"></div><div class="shimmer" style="width:50%;height:11px"></div></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="sec-hdr"><span class="sec-label">More Headlines</span><div class="sec-line"></div></div>
+      <div class="news-list" id="moreList"><div class="shimmer" style="height:54px;margin:1px"></div><div class="shimmer" style="height:54px;margin:1px"></div><div class="shimmer" style="height:54px;margin:1px"></div></div>
+    </div>
+    <div class="section" id="sec-sports">
+      <div class="sec-hdr"><span class="sec-label">Sports</span><div class="sec-line"></div></div>
+      <div class="sports-grid" id="sportsGrid"></div>
+    </div>
+  </div>
+</main>
+
+<div class="modal-bg" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕ Close</button>
+    <div class="modal-src" id="mSrc"></div>
+    <div class="modal-hl" id="mHl"></div>
+    <div class="modal-body" id="mBody"></div>
+    <a class="modal-link" id="mLink" target="_blank" rel="noopener">Read Full Article →</a>
+  </div>
+</div>
+
+<footer>
+  <strong>The Tribune</strong> — Built entirely on free, open APIs. No paywalls. No subscriptions. No API keys required.<br>
+  <div class="ftable">
+    <span class="fn">Washington Post</span><span class="ft" style="color:#c4a55a">Subscription</span><span class="fd">U.S., World, Politics, Business</span>
+    <span class="fn">The Guardian</span><span class="ft" style="color:#c4a55a">Subscription</span><span class="fd">World, U.S., Business, Tech, Sports</span>
+    <span class="fn">Reuters</span><span class="ft">Free · No Key</span><span class="fd">World headlines</span>
+    <span class="fn">BBC News</span><span class="ft">Free · No Key</span><span class="fd">International</span>
+    <span class="fn">NPR News</span><span class="ft">Free · No Key</span><span class="fd">U.S. public radio</span>
+    <span class="fn">PBS NewsHour</span><span class="ft">Free · No Key</span><span class="fd">U.S. public television</span>
+    <span class="fn">Al Jazeera</span><span class="ft">Free · No Key</span><span class="fd">International</span>
+    <span class="fn">ESPN</span><span class="ft">Free · No Key</span><span class="fd">Sports</span>
+    <span class="fn">Open-Meteo</span><span class="ft">Free · No Key</span><span class="fd">Current conditions</span>
+    <span class="fn">Nat'l Weather Service</span><span class="ft">Free · No Key</span><span class="fd">Official U.S. forecast</span>
+    <span class="fn">Yahoo Finance</span><span class="ft">Free · No Key</span><span class="fd">Live market quotes</span>
+  </div>
+  <br>&copy; <span id="yr"></span> The Tribune Dashboard
+</footer>
+
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const strip=s=>s.replace(/<[^>]*>/g,'').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').trim();
+const ago=d=>{try{const s=Math.round((Date.now()-new Date(d))/1e3);if(s<60)return'Just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';}catch{return''}};
+
+const now=new Date();
+$('hdrDate').textContent=now.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+$('yr').textContent=now.getFullYear();
+
+let allNews=[],sportsNews=[],wxData=null,nwsFx=null,mktData=[],activeTab='all';
+
+function setTab(tab,btn){activeTab=tab;document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');renderContent();}
+
+/* ── WEATHER ── */
+/* Open-Meteo: free, no key. National Weather Service: free, no key, US gov. */
+const LAT=39.7447,LON=-75.5484;
+const WMO={0:'Clear Sky',1:'Mostly Clear',2:'Partly Cloudy',3:'Overcast',45:'Foggy',48:'Icy Fog',51:'Light Drizzle',53:'Drizzle',55:'Heavy Drizzle',61:'Light Rain',63:'Moderate Rain',65:'Heavy Rain',71:'Light Snow',73:'Moderate Snow',75:'Heavy Snow',80:'Rain Showers',81:'Heavy Showers',82:'Violent Showers',95:'Thunderstorm',96:'Thunderstorm',99:'Severe Thunderstorm'};
+const WI={0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌧️',61:'🌧️',63:'🌧️',65:'🌧️',71:'🌨️',73:'❄️',75:'❄️',80:'🌦️',81:'🌧️',82:'⛈️',95:'⛈️',96:'⛈️',99:'⛈️'};
+const windDir=d=>{const dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];return dirs[Math.round(d/22.5)%16]};
+
+async function fetchWeather(){
+  try{
+    const [omR,ptR]=await Promise.all([
+      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m,precipitation,surface_pressure&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch`),
+      fetch(`https://api.weather.gov/points/${LAT},${LON}`,{headers:{Accept:'application/geo+json','User-Agent':'TheTribune/1.0 (news dashboard)'}})
+    ]);
+    const om=await omR.json();
+    wxData=om.current;
+    const pt=await ptR.json();
+    const fxR=await fetch(pt.properties.forecast,{headers:{Accept:'application/geo+json','User-Agent':'TheTribune/1.0'}});
+    const fx=await fxR.json();
+    nwsFx=fx.properties.periods.slice(0,4);
+  }catch(e){
+    try{
+      const omR=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m,precipitation,surface_pressure&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch`);
+      const om=await omR.json();
+      wxData=om.current;
+    }catch{}
+  }
+  renderWeather();
+}
+
+function renderWeather(){
+  if(!wxData){$('weatherWidget').innerHTML='<div class="empty-state">Weather unavailable</div>';return;}
+  const c=wxData,code=c.weather_code,icon=WI[code]||'🌡️',desc=WMO[code]||'—';
+  let fxHtml='';
+  if(nwsFx&&nwsFx.length){
+    fxHtml=`<div class="wx-forecast">
+      <div class="wx-fx-title">NWS Official Forecast</div>
+      ${nwsFx.slice(0,3).map(p=>`<div class="wx-fx-row">
+        <div class="wx-fx-name">${esc(p.name)}</div>
+        <div class="wx-fx-detail">${p.temperature}°${p.temperatureUnit} · ${esc(p.shortForecast)}</div>
+      </div>`).join('')}
+      <div style="font-size:11px;color:var(--text-sec);line-height:1.6;margin-top:8px">${esc((nwsFx[0]?.detailedForecast||'').substring(0,200))}${(nwsFx[0]?.detailedForecast||'').length>200?'…':''}</div>
+    </div>`;
+  }
+  $('weatherWidget').innerHTML=`
+    <div class="wx-loc">📍 Wilmington, Delaware</div>
+    <div class="wx-main">
+      <div><div class="wx-temp">${Math.round(c.temperature_2m)}<sup>°F</sup></div><div class="wx-feel">Feels like ${Math.round(c.apparent_temperature)}°F</div></div>
+      <div style="font-size:52px">${icon}</div>
+    </div>
+    <div class="wx-desc">${desc}</div>
+    <div class="wx-grid">
+      <div class="wx-stat"><label>Humidity</label><strong>${c.relative_humidity_2m}%</strong></div>
+      <div class="wx-stat"><label>Wind</label><strong>${Math.round(c.wind_speed_10m)} mph ${windDir(c.wind_direction_10m)}</strong></div>
+      <div class="wx-stat"><label>Pressure</label><strong>${(c.surface_pressure*0.02953).toFixed(2)}"</strong></div>
+      <div class="wx-stat"><label>Precip.</label><strong>${c.precipitation}"</strong></div>
+    </div>${fxHtml}`;
+  buildTicker();
+}
+
+/* ── MARKETS ── */
+/* Yahoo Finance public endpoint via allorigins.win CORS proxy — both free, no key */
+const SYMS=[
+  {sym:'^DJI',name:'Dow Jones',sub:'DJIA'},
+  {sym:'^GSPC',name:'S&P 500',sub:'SPX'},
+  {sym:'^IXIC',name:'Nasdaq',sub:'COMP'},
+  {sym:'GC=F',name:'Gold',sub:'XAU/USD'},
+  {sym:'CL=F',name:'Crude Oil',sub:'WTI'},
+  {sym:'^TNX',name:'10Y Treasury',sub:'US10Y'},
+];
+
+async function fetchMarkets(){
+  const url=`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${SYMS.map(s=>s.sym).join(',')}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent`;
+  try{
+    const r=await fetch('https://api.allorigins.win/raw?url='+encodeURIComponent(url));
+    const d=await r.json();
+    const quotes=d?.quoteResponse?.result||[];
+    if(!quotes.length)throw new Error();
+    mktData=SYMS.map(s=>{
+      const q=quotes.find(q=>q.symbol===s.sym)||{};
+      return{...s,price:q.regularMarketPrice||0,change:q.regularMarketChange||0,pct:q.regularMarketChangePercent||0,live:true};
+    });
+    $('mktNote').textContent='· Yahoo Finance · Live';
+  }catch{
+    const seeds=[42580,5715,18030,3112,71.4,4.31];
+    mktData=SYMS.map((s,i)=>{const p=(Math.random()-.48)*.9;return{...s,price:+(seeds[i]*(1+p/100)).toFixed(2),change:+(seeds[i]*p/100).toFixed(2),pct:+p.toFixed(2),live:false};});
+    $('mktNote').textContent='· Simulated (Yahoo unavailable)';
+  }
+  renderMarkets();buildTicker();
+}
+
+function renderMarkets(){
+  $('marketWidget').innerHTML=mktData.map(m=>{
+    const up=m.pct>=0,sign=up?'+':'',arr=up?'▲':'▼';
+    const price=m.sub==='US10Y'?m.price.toFixed(2)+'%':m.price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    return`<div class="mkt-row">
+      <div><div class="mkt-name">${m.name}</div><div class="mkt-sub">${m.sub}${m.live?'<span class="live-dot"></span>':''}</div></div>
+      <div><div class="mkt-price ${up?'up':'down'}">${price}</div><div class="mkt-chg ${up?'up':'down'}">${arr} ${sign}${m.pct.toFixed(2)}%</div></div>
+    </div>`;
+  }).join('');
+}
+
+/* ── NEWS RSS ── */
+/* rss2json.com converts any public RSS to JSON with CORS support — free, no key for public feeds */
+const RSS='https://api.rss2json.com/v1/api.json?count=15&rss_url=';
+const FEEDS=[
+  {url:'https://feeds.reuters.com/reuters/topNews',            label:'Reuters',           tag:'world'},
+  {url:'https://feeds.bbci.co.uk/news/rss.xml',               label:'BBC News',           tag:'world'},
+  {url:'https://feeds.npr.org/1001/rss.xml',                  label:'NPR News',           tag:'us'},
+  {url:'https://www.pbs.org/newshour/feeds/rss/headlines',    label:'PBS NewsHour',       tag:'us'},
+  {url:'https://feeds.washingtonpost.com/rss/homepage',       label:'Washington Post',    tag:'us'},
+  {url:'https://feeds.washingtonpost.com/rss/world',          label:'Washington Post',    tag:'world'},
+  {url:'https://feeds.washingtonpost.com/rss/politics',       label:'Washington Post',    tag:'us'},
+  {url:'https://feeds.washingtonpost.com/rss/business',       label:'Washington Post',    tag:'business'},
+  {url:'https://www.theguardian.com/world/rss',               label:'The Guardian',       tag:'world'},
+  {url:'https://www.theguardian.com/us-news/rss',             label:'The Guardian',       tag:'us'},
+  {url:'https://www.theguardian.com/business/rss',            label:'The Guardian',       tag:'business'},
+  {url:'https://www.theguardian.com/technology/rss',          label:'The Guardian',       tag:'technology'},
+  {url:'https://www.theguardian.com/sport/rss',               label:'The Guardian',       tag:'sports'},
+  {url:'https://www.aljazeera.com/xml/rss/all.xml',           label:'Al Jazeera',         tag:'world'},
+  {url:'https://www.espn.com/espn/rss/news',                  label:'ESPN',               tag:'sports'},
+];
+
+async function fetchFeed(f){
+  const tout=ms=>new Promise((_,rej)=>setTimeout(()=>rej('timeout'),ms));
+
+  // Method 1: rss2json (handles CORS + parsing)
+  try{
+    const r=await Promise.race([fetch(RSS+encodeURIComponent(f.url)),tout(7000)]);
+    const d=await r.json();
+    if(d.status==='ok'&&d.items?.length){
+      return d.items.map(i=>({
+        title:(i.title||'').trim(),link:i.link||'',
+        snippet:strip(i.description||i.content||'').substring(0,280),
+        pubDate:i.pubDate,source:f.label,tag:f.tag
+      })).filter(i=>i.title);
+    }
+  }catch{}
+
+  // Method 2: fetch raw XML via allorigins proxy, parse with DOMParser
+  try{
+    const r=await Promise.race([
+      fetch('https://api.allorigins.win/raw?url='+encodeURIComponent(f.url)),
+      tout(8000)
+    ]);
+    const xml=await r.text();
+    const doc=new DOMParser().parseFromString(xml,'text/xml');
+    const items=[...doc.querySelectorAll('item, entry')];
+    return items.slice(0,15).map(el=>{
+      const txt=t=>el.querySelector(t)?.textContent?.trim()||'';
+      const link=el.querySelector('link')?.getAttribute('href')||txt('link')||txt('guid');
+      return{
+        title:txt('title'),link,
+        snippet:strip(txt('description')||txt('summary')||txt('content')).substring(0,280),
+        pubDate:txt('pubDate')||txt('published')||txt('updated'),
+        source:f.label,tag:f.tag
+      };
+    }).filter(i=>i.title);
+  }catch{}
+
+  return[];
+}
+
+async function fetchAllNews(){
+  // Fetch progressively — render as each feed arrives so page populates immediately
+  const promises=FEEDS.map(async f=>{
+    const items=await fetchFeed(f);
+    if(!items.length)return;
+    if(f.tag==='sports') sportsNews=[...sportsNews,...items];
+    else allNews=[...allNews,...items];
+    renderContent();
+    buildTicker();
+  });
+  await Promise.allSettled(promises);
+  renderContent();
+  buildTicker();
+}
+
+/* ── RENDER ── */
+const articleStore={};let articleIdx=0;
+function storeArticle(n){const id='a'+(articleIdx++);articleStore[id]=n;return id;}
+
+function renderContent(){
+  const tab=activeTab;
+  let items=tab==='all'?allNews:tab==='sports'?sportsNews:allNews.filter(n=>n.tag===tab||n.title.toLowerCase().includes(tab));
+  if(items.length>=3){
+    const[feat,...rest]=items;
+    $('topGrid').innerHTML=card(feat,true)+rest.slice(0,2).map(n=>card(n,false)).join('');
+  } else {
+    $('topGrid').innerHTML='<div class="empty-state" style="grid-column:span 2">Loading headlines — please wait a moment…</div>';
+  }
+  const more=items.slice(3,13);
+  $('moreList').innerHTML=more.length
+    ?more.map((n,i)=>{const id=storeArticle(n);return`<div class="list-item" onclick="openA('${id}')">
+        <div class="list-num">${String(i+1).padStart(2,'0')}</div>
+        <div><div class="list-hl">${esc(n.title)}</div><div class="list-meta">${esc(n.source)} · ${ago(n.pubDate)}</div></div>
+      </div>`}).join('')
+    :'<div class="empty-state">No additional stories</div>';
+  const sp=(tab==='all'||tab==='sports')?sportsNews.slice(0,6):[];
+  $('sportsGrid').innerHTML=sp.map(n=>{const id=storeArticle(n);return`<div class="sport-card" onclick="openA('${id}')">
+    <div class="sport-cat">${esc(n.source)}</div><div class="sport-hl">${esc(n.title)}</div><div class="sport-src">${ago(n.pubDate)}</div>
+  </div>`;}).join('');
+  $('sec-sports').style.display=sp.length?'':'none';
+}
+
+function card(n,featured){
+  const id=storeArticle(n);
+  return`<div class="news-card${featured?' featured':''}" onclick="openA('${id}')">
+    <div class="news-src">${esc(n.source)}</div>
+    <span class="news-tag tag-${n.tag||'world'}">${n.tag||'news'}</span>
+    <div class="news-hl">${esc(n.title)}</div>
+    ${featured&&n.snippet?`<div class="news-snip">${esc(n.snippet)}…</div>`:''}
+    <div class="news-time">${ago(n.pubDate)}</div>
+  </div>`;
+}
+
+/* ── MODAL ── */
+function openA(id){
+  const n=articleStore[id];if(!n)return;
+  $('mSrc').textContent=n.source+(n.pubDate?' · '+new Date(n.pubDate).toLocaleString():'');
+  $('mHl').textContent=n.title;
+  $('mBody').innerHTML=n.snippet
+    ?`<p>${esc(n.snippet)}…</p><p style="margin-top:14px;font-size:14px;color:var(--text-sec)">Excerpt from ${esc(n.source)} RSS feed. Click below for the full original article.</p>`
+    :'<p>Click below to read the full article on the original source.</p>';
+  $('mLink').href=n.link;$('mLink').textContent='Read on '+n.source+' →';
+  $('modal').classList.add('open');document.body.style.overflow='hidden';
+}
+function closeModal(){$('modal').classList.remove('open');document.body.style.overflow='';}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
+/* ── TICKER ── */
+function buildTicker(){
+  const mkt=mktData.map(m=>{
+    if(!m.price)return'';
+    const up=m.pct>=0,sign=up?'+':'',arr=up?'▲':'▼';
+    const price=m.sub==='US10Y'?m.price.toFixed(2)+'%':m.price.toLocaleString('en-US',{maximumFractionDigits:2});
+    return`<span class="t-item ${up?'up':'down'}"><span class="badge">MKT</span>${m.name} ${price} <span class="chg">${arr}${sign}${m.pct.toFixed(2)}%</span></span>`;
+  }).join('');
+  const wx=wxData?`<span class="t-item wx-item"><span class="badge">WEATHER</span>Wilmington, DE · ${Math.round(wxData.temperature_2m)}°F · ${WMO[wxData.weather_code]||''} · Wind ${Math.round(wxData.wind_speed_10m)} mph ${windDir(wxData.wind_direction_10m)}</span>`:'';
+  const news=[...allNews,...sportsNews].slice(0,14).map(n=>`<span class="t-item news-item"><span class="badge">${esc(n.source.toUpperCase().replace(/ /g,'·'))}</span>${esc(n.title.substring(0,90))}${n.title.length>90?'…':''}</span>`).join('');
+  const content=mkt+wx+news;
+  if(content.trim()){const t=$('tickerTrack');t.innerHTML=content+content;}
+}
+
+/* ── INIT ── */
+buildTicker();
+fetchWeather();
+fetchMarkets();
+fetchAllNews();
+setInterval(fetchMarkets,60000);
+setInterval(fetchAllNews,300000);
+setInterval(fetchWeather,900000);
+</script>
+</body>
+</html>
